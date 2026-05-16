@@ -202,8 +202,10 @@ def instruction_size(line_no: int, text: str) -> int:
         # resolved later in pass 1 where symbols may exist
         return -1
 
-    if op in ("ei", "halt", "ret", "reti", "rra"):
+    if op in ("ei", "halt", "ret", "rra"):
         return 1
+    if op == "reti":
+        return 2
     if op == "im":
         return 2
     if op in ("jr",):
