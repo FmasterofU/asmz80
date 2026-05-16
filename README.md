@@ -5,7 +5,7 @@ Simple Z80 assembler for the instruction list and sample program in this reposit
 ## Usage
 
 ```bash
-python3 asmz80.py /home/runner/work/asmz80/asmz80/minefield3.asm -o /home/runner/work/asmz80/asmz80/minefield.bin
+python3 asmz80.py minefield3.asm -o minefield.bin
 ```
 
 ## Notes

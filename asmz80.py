@@ -273,7 +273,13 @@ def parse_literal_value(token: str) -> int | None:
     return parse_number(token)
 
 
-def match_operand(spec: str, operand: str, scope: str | None, symbols: dict[str, int]) -> tuple[dict[str, int], list[tuple[str, str]]] | None:
+def match_operand(
+    spec: str,
+    operand: str,
+    scope: str | None,
+    symbols: dict[str, int],
+    line_no: int,
+) -> tuple[dict[str, int], list[tuple[str, str]]] | None:
     operand_clean = operand.strip()
     operand_upper = operand_clean.upper().replace(' ', '')
     spec_upper = spec.upper().replace(' ', '')
@@ -287,7 +293,7 @@ def match_operand(spec: str, operand: str, scope: str | None, symbols: dict[str,
     if spec == 'b':
         value = evaluate_expression(operand_clean, symbols, scope)
         if not 0 <= value <= 7:
-            raise AssemblerError('Bit index must be between 0 and 7')
+            raise AssemblerError(f'Bit index must be between 0 and 7 on line {line_no}: got {value}')
         formula_values['b'] = value
         return formula_values, []
     if spec == 'N':
@@ -320,13 +326,19 @@ def match_operand(spec: str, operand: str, scope: str | None, symbols: dict[str,
     return ({}, []) if operand_upper == spec_upper else None
 
 
-def match_template(template: InstructionTemplate, operands: list[str], scope: str | None, symbols: dict[str, int]) -> MatchResult | None:
+def match_template(
+    template: InstructionTemplate,
+    operands: list[str],
+    scope: str | None,
+    symbols: dict[str, int],
+    line_no: int,
+) -> MatchResult | None:
     if len(template.operands) != len(operands):
         return None
     formula_values: dict[str, int] = {}
     byte_tasks: list[tuple[str, str]] = []
     for spec, operand in zip(template.operands, operands):
-        matched = match_operand(spec, operand, scope, symbols)
+        matched = match_operand(spec, operand, scope, symbols, line_no)
         if matched is None:
             return None
         spec_formula, spec_tasks = matched
@@ -380,7 +392,7 @@ class Assembler:
         best_match: MatchResult | None = None
         best_score = -1
         for template in self.templates.get(statement.name, []):
-            matched = match_template(template, statement.args, statement.scope, symbols)
+            matched = match_template(template, statement.args, statement.scope, symbols, statement.line_no)
             if matched is not None:
                 score = sum(operand_specificity(spec) for spec in template.operands)
                 if score > best_score:
@@ -482,7 +494,9 @@ class Assembler:
                 extra_bytes.extend((word & 0xFF, word >> 8))
             elif kind == 'disp8':
                 if not -128 <= value <= 127:
-                    raise AssemblerError(f'Indexed displacement out of range on line {statement.line_no}: {value}')
+                    raise AssemblerError(
+                        f'Indexed displacement must be between -128 and 127 on line {statement.line_no}: got {value}'
+                    )
                 extra_bytes.append(value & 0xFF)
             elif kind == 'rel8':
                 offset = value - (pc + match.template.size)
