@@ -164,7 +164,7 @@ def eval_expr(s, lookup, pc=0, pass_num=2):
         while peek() in ('*', '/'):
             op = consume()
             right = parse_primary()
-            left = left * right if op == '*' else int(left / right)
+            left = left * right if op == '*' else left // right
         return left
 
     def parse_add():
@@ -350,9 +350,30 @@ def parse_db_items(s):
 
 def encode(mne, ops_str, pc, lookup, pass_num):  # noqa: C901  (long but clear)
     """
-    Encode one instruction or data directive.
+    Encode one instruction or data directive into a list of byte values.
 
-    Returns list of byte values (ints 0–255).
+    Parameters
+    ----------
+    mne      : uppercase mnemonic string (e.g. 'LD', 'JR', 'DB')
+    ops_str  : raw operands string (e.g. 'a,(curr_btns)')
+    pc       : current program counter (used for relative-branch calculations
+               and the ``$`` literal in expressions)
+    lookup   : callable(name: str) -> int | None
+               Symbol lookup function; returns the integer value of a symbol
+               or None if it is not yet defined.  In pass 1 the assembler
+               provides a lookup that returns None for forward references,
+               and ``eval_expr`` treats those as 0.
+    pass_num : 1 or 2.  Range-checks on relative branches are skipped in
+               pass 1 so that forward references do not cause spurious errors.
+
+    Returns
+    -------
+    list[int]  -- byte values in the range 0–255.
+
+    Raises
+    ------
+    AsmError  -- for unknown mnemonics, unsupported instruction forms, or
+                 out-of-range values detected in pass 2.
     """
     ops = split_ops(ops_str) if ops_str.strip() else []
     nops = len(ops)
