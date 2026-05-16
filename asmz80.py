@@ -562,7 +562,8 @@ def parse_source(source: str) -> Tuple[List[Entry], Dict[str, str], Dict[str, in
 
     # Resolve EQU expressions after first pass labels are known.
     unresolved = dict(equ_expr)
-    for _ in range(len(unresolved) + 5):
+    max_equ_passes = len(unresolved) + 5
+    for _ in range(max_equ_passes):
         if not unresolved:
             break
         progressed = False
