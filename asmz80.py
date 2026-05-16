@@ -14,6 +14,7 @@ REG16 = {"bc": 0, "de": 1, "hl": 2, "sp": 3}
 PUSHPOP = {"bc": 0, "de": 1, "hl": 2, "af": 3}
 COND_JR = {"nz": 0x20, "z": 0x28, "nc": 0x30, "c": 0x38}
 COND_JP_CALL = {"nz": 0x00, "z": 0x08, "nc": 0x10, "c": 0x18, "po": 0x20, "pe": 0x28, "p": 0x30, "m": 0x38}
+EQU_PASS_BUFFER = 5
 
 TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(\.[A-Za-z_][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*)")
 
@@ -496,9 +497,9 @@ def encode_instruction(entry: Entry, symbols: Dict[str, int]) -> List[int]:
     raise AsmError(f"line {line_no}: unsupported opcode '{op}'")
 
 
-def parse_source(source: str) -> Tuple[List[Entry], Dict[str, str], Dict[str, int]]:
+def parse_source(source: str) -> Tuple[List[Entry], Dict[str, Tuple[str, int, Optional[str]]], Dict[str, int]]:
     entries: List[Entry] = []
-    equ_expr: Dict[str, str] = {}
+    equ_expr: Dict[str, Tuple[str, int, Optional[str]]] = {}
     symbols: Dict[str, int] = {}
     pc = 0
     current_global: Optional[str] = None
@@ -543,7 +544,7 @@ def parse_source(source: str) -> Tuple[List[Entry], Dict[str, str], Dict[str, in
             if label is None:
                 raise AsmError(f"line {line_no}: equ must have a label")
             expanded = expand_local_symbol(label, current_global, line_no)
-            equ_expr[expanded] = rest
+            equ_expr[expanded] = (rest, line_no, current_global)
             entries.append(Entry(line_no, pc, line, current_global))
             continue
 
@@ -562,15 +563,15 @@ def parse_source(source: str) -> Tuple[List[Entry], Dict[str, str], Dict[str, in
 
     # Resolve EQU expressions after first pass labels are known.
     unresolved = dict(equ_expr)
-    max_equ_passes = len(unresolved) + 5
+    max_equ_passes = len(unresolved) + EQU_PASS_BUFFER
     for _ in range(max_equ_passes):
         if not unresolved:
             break
         progressed = False
         for name in list(unresolved.keys()):
-            expr = unresolved[name]
+            expr, expr_line_no, expr_global = unresolved[name]
             try:
-                symbols[name] = eval_expr(expr, symbols, None, 0)
+                symbols[name] = eval_expr(expr, symbols, expr_global, expr_line_no)
                 unresolved.pop(name)
                 progressed = True
             except AsmError:
