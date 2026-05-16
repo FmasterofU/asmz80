@@ -14,7 +14,7 @@ REG16 = {"bc": 0, "de": 1, "hl": 2, "sp": 3}
 PUSHPOP = {"bc": 0, "de": 1, "hl": 2, "af": 3}
 COND_JR = {"nz": 0x20, "z": 0x28, "nc": 0x30, "c": 0x38}
 COND_JP_CALL = {"nz": 0x00, "z": 0x08, "nc": 0x10, "c": 0x18, "po": 0x20, "pe": 0x28, "p": 0x30, "m": 0x38}
-EQU_PASS_BUFFER = 5
+EQU_RESOLUTION_BUFFER = 5
 
 TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(\.[A-Za-z_][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*)")
 
@@ -131,14 +131,14 @@ def eval_expr(expr: str, symbols: Dict[str, int], current_global: Optional[str],
         j = i
         if s[j] in ('$','%'):
             j += 1
-            while j < len(s) and re.match(r"[0-9A-Fa-f]", s[j]):
+            while j < len(s) and s[j] in "0123456789ABCDEFabcdef":
                 j += 1
         elif s.startswith("0x", j):
             j += 2
-            while j < len(s) and re.match(r"[0-9A-Fa-f]", s[j]):
+            while j < len(s) and s[j] in "0123456789ABCDEFabcdef":
                 j += 1
         else:
-            while j < len(s) and re.match(r"[A-Za-z0-9_.]", s[j]):
+            while j < len(s) and (s[j].isalnum() or s[j] in "._"):
                 j += 1
 
         token = s[i:j]
@@ -563,7 +563,7 @@ def parse_source(source: str) -> Tuple[List[Entry], Dict[str, Tuple[str, int, Op
 
     # Resolve EQU expressions after first pass labels are known.
     unresolved = dict(equ_expr)
-    max_equ_passes = len(unresolved) + EQU_PASS_BUFFER
+    max_equ_passes = len(unresolved) + EQU_RESOLUTION_BUFFER
     for _ in range(max_equ_passes):
         if not unresolved:
             break
